@@ -22,6 +22,10 @@ class CreateTransactionService {
       throw new AppError('Must provide a value greater then 0');
     }
 
+    if (type !== 'income' && type !== 'outcome') {
+      throw new AppError('Invalid Type');
+    }
+
     const transactionsRepository = getRepository(Transaction);
     const categoriesRepository = getCustomRepository(CategoriesRepository);
 
