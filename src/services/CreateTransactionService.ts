@@ -1,8 +1,9 @@
-import { getRepository, getCustomRepository } from 'typeorm';
+import { getCustomRepository } from 'typeorm';
 import AppError from '../errors/AppError';
 
 import Transaction from '../models/Transaction';
 import CategoriesRepository from '../repositories/CategoriesRepository';
+import TransactionRepository from '../repositories/TransactionsRepository';
 
 interface RequestDTO {
   title: string;
@@ -12,6 +13,8 @@ interface RequestDTO {
 }
 
 class CreateTransactionService {
+  transactionsRepository: TransactionRepository;
+
   public async execute({
     title,
     value,
@@ -26,21 +29,34 @@ class CreateTransactionService {
       throw new AppError('Invalid Type');
     }
 
-    const transactionsRepository = getRepository(Transaction);
+    this.transactionsRepository = getCustomRepository(TransactionRepository);
+
+    if (type === 'outcome') {
+      await this.checkForSufficientBalance(value);
+    }
+
     const categoriesRepository = getCustomRepository(CategoriesRepository);
 
     const category = await categoriesRepository.findOrCreate(categoryTitle);
 
-    const transaction = await transactionsRepository.create({
+    const transaction = await this.transactionsRepository.create({
       title,
       value,
       type,
       category_id: category.id,
     });
 
-    await transactionsRepository.save(transaction);
+    await this.transactionsRepository.save(transaction);
 
     return transaction;
+  }
+
+  async checkForSufficientBalance(outcomeValue: number): Promise<void> {
+    const balance = await this.transactionsRepository.getBalance();
+
+    if (balance.total < outcomeValue) {
+      throw new AppError('Insufficient funds');
+    }
   }
 }
 
