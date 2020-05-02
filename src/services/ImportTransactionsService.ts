@@ -1,3 +1,5 @@
+/* eslint-disable no-await-in-loop */
+/* eslint-disable no-restricted-syntax */
 import path from 'path';
 import csvParse from 'csv-parse';
 import fs from 'fs';
@@ -38,14 +40,37 @@ class ImportTransactionsService {
     const transactions: Transaction[] = [];
     const createTransactionService = new CreateTransactionService();
 
-    const promises = csvLines.map(async (line, index) => {
+    /**
+     * Ocorre um problema nesse trecho onde as transações sao criadas em paralelo,
+     * e quando há um outcome sem processar um income anterior, dá erro devido a falta de saldo;
+     * A solução seria forçar as promises a resolver de maneira sincrona;
+     */
+    // const promises = await csvLines.map(async line => {
+    //   const [title, type, valueString, category] = line;
+
+    //   const validType = type === 'income' ? 'income' : 'outcome';
+
+    //   const value = parseInt(valueString, 10);
+    //   const transaction = await createTransactionService.execute({
+    //     title,
+    //     type: validType,
+    //     value,
+    //     categoryTitle: category,
+    //   });
+
+    //   transactions.push(transaction);
+    // });
+
+    // await Promise.all(promises);
+
+    /**
+     * Alternativa encontrada para forçar a criação das transações de
+     * maneira sequencial;
+     */
+
+    for (const line of csvLines) {
       const [title, type, valueString, category] = line;
 
-      if (type !== 'income' && type !== 'outcome') {
-        console.warn(`error on line ${index + 1} while importing transactions`);
-        console.warn('invalid transaction type');
-        return;
-      }
       const validType = type === 'income' ? 'income' : 'outcome';
 
       const value = parseInt(valueString, 10);
@@ -57,9 +82,7 @@ class ImportTransactionsService {
       });
 
       transactions.push(transaction);
-    });
-
-    await Promise.all(promises);
+    }
 
     return transactions;
   }
